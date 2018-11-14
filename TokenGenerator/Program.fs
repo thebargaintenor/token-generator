@@ -28,8 +28,8 @@ let main argv =
         try
             use template = loadbitmap templatePath
             use image = loadbitmap imagePath
-            let boundingBox = createToken template image outputPath
-            match boundingBox with
+            let result = createToken template image outputPath
+            match result with
             | Success outputLocation -> printfn "Success! Your token was written to %s" outputLocation
             | Failure message -> printfn "Error: %s" message
         with
