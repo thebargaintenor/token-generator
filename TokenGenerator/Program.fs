@@ -10,7 +10,6 @@ type Result<'a> =
 let loadbitmap (path: string) = new Bitmap(path)
 
 let createToken (template: Bitmap) (image: Bitmap) (outputPath: string): string Result = 
-    printfn "something happened"
     let mask = Color.FromArgb(255, 255, 0, 255)
     let maskBounds = findMaskBounds template mask
     match maskBounds with
@@ -24,7 +23,6 @@ let createToken (template: Bitmap) (image: Bitmap) (outputPath: string): string 
 let main argv =
     match argv with
     | [| templatePath ; imagePath ; outputPath |] -> 
-        printfn "template: %s, image: %s" templatePath imagePath
         try
             use template = loadbitmap templatePath
             use image = loadbitmap imagePath
@@ -33,9 +31,9 @@ let main argv =
             | Success outputLocation -> printfn "Success! Your token was written to %s" outputLocation
             | Failure message -> printfn "Error: %s" message
         with
-            | _ -> printfn "failed to load image"
+            | ex -> printfn "something failed: %s \n %s" ex.Message ex.StackTrace
     | _ ->
         printfn "Missing arguments"
 
-    printfn "Hello World from F#!"
-    0 // return an integer exit code
+    printfn "Exiting happily."
+    0
