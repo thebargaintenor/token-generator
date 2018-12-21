@@ -64,20 +64,20 @@ let applyMask (template: Bitmap) (mask: Color) (maskBounds: Rectangle) (image: B
     let output = new Bitmap(template.Width, template.Height)
     use resizedContent = resizeToBounds image maskBounds
 
-    let landscape = resizedContent.Width >= resizedContent.Height
     let rx, ry =
+        let landscape = resizedContent.Width >= resizedContent.Height
         if landscape then
             maskBounds.X - (resizedContent.Width - maskBounds.Width) / 2, maskBounds.Y
         else
             maskBounds.X, maskBounds.Y - (resizedContent.Height - maskBounds.Height) / 2
 
-    let inMaskBounds x y =
-        x >= maskBounds.X && x < maskBounds.X + maskBounds.Width &&
-        y >= maskBounds.Y && y < maskBounds.Y + maskBounds.Height
-
     let transformToContent x y = x - rx, y - ry
     let showPixel x y =
-        if inMaskBounds x y then
+        let inMaskBounds =
+            x >= maskBounds.X && x < maskBounds.X + maskBounds.Width &&
+            y >= maskBounds.Y && y < maskBounds.Y + maskBounds.Height
+
+        if inMaskBounds then
             colorsCloseEnough mask (template.GetPixel(x, y))
         else
             false
@@ -86,8 +86,7 @@ let applyMask (template: Bitmap) (mask: Color) (maskBounds: Rectangle) (image: B
 
     // y in this system is relative to resized image
     let drawScanline y =
-        let scanline = horizontalScan template y
-        scanline
+        horizontalScan template y
         |> Seq.iteri 
             (fun x c -> 
                 if showPixel x y then
