@@ -8,9 +8,9 @@ let colorsCloseEnough (want: Color) (got: Color): bool =
     let delta = 
         sqrt (
             (double want.A - double got.A) ** 2. +
-            (double want.R - double want.R) ** 2. +
-            (double want.G - double want.G) ** 2. +
-            (double want.B - double want.B) ** 2.)
+            (double want.R - double got.R) ** 2. +
+            (double want.G - double got.G) ** 2. +
+            (double want.B - double got.B) ** 2.)
     delta <= tolerance
 
 let containsColor (color: Color) (tolerance: int) (scanline: Color seq) =
