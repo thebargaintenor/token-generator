@@ -3,21 +3,17 @@ open System.Drawing.Imaging
 
 open ImageOperations
 
-type Result<'a> =
-| Success of 'a
-| Failure of string
-
 let loadbitmap (path: string) = new Bitmap(path)
 
-let createToken (template: Bitmap) (image: Bitmap) (outputPath: string): string Result = 
+let createToken (template: Bitmap) (image: Bitmap) (outputPath: string) = 
     let mask = Color.FromArgb(255, 255, 0, 255)
     let maskBounds = findMaskBounds template mask
     match maskBounds with
     | Some bounds ->
         use token = applyMask template mask bounds image
         token.Save(outputPath, ImageFormat.Png)
-        Success outputPath
-    | None -> Failure "no fuchsia mask found"
+        Ok outputPath
+    | None -> Error "no fuchsia mask found"
 
 [<EntryPoint>]
 let main argv =
@@ -28,8 +24,8 @@ let main argv =
             use image = loadbitmap imagePath
             let result = createToken template image outputPath
             match result with
-            | Success outputLocation -> printfn "Success! Your token was written to %s" outputLocation
-            | Failure message -> printfn "Error: %s" message
+            | Ok outputLocation -> printfn "Success! Your token was written to %s" outputLocation
+            | Error message -> printfn "Error: %s" message
         with
             | ex -> printfn "something failed: %s \n %s" ex.Message ex.StackTrace
     | _ ->

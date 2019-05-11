@@ -43,7 +43,7 @@ let findMaskBounds (image: Bitmap) (mask: Color): Rectangle option =
         maskScan horizontalScan (Seq.rev {0 .. image.Height - 1})     // bottom
         |]
     match scannedBounds with
-    | [| Some left; Some top; Some right; Some bottom |] -> Some (new Rectangle(left, top, right - left, bottom - top))
+    | [| Some left; Some top; Some right; Some bottom |] -> Some (Rectangle(left, top, right - left, bottom - top))
     | _ -> None
 
 let resizeToBounds (image: Bitmap) (bounds: Rectangle): Bitmap = 
