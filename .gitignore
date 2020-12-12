@@ -40,3 +40,8 @@ Thumbs.db
 
 # dotCover
 *.dotCover
+
+.fake
+
+# vscode
+settings.json
