@@ -1,17 +1,18 @@
 ﻿module ImageOperations
 
-open System.Drawing
-open System.Drawing.Drawing2D
+open SixLabors.ImageSharp
+open SixLabors.ImageSharp.PixelFormats
+open SixLabors.ImageSharp.Processing
 
 module euclidean =
-    let srgb (want: Color) (got: Color) =
+    let srgb (want: Argb32) (got: Argb32) =
         let rbar = (double want.R - double got.R) / 2.
         sqrt (
             (2. + rbar / 256.) * (double want.R - double got.R) ** 2. +
             4. * (double want.G - double got.G) ** 2. +
             (2. + (255. - rbar) / 256.) * (double want.B - double got.B) ** 2.)
     
-    let naive (want: Color) (got: Color) =
+    let naive (want: Argb32) (got: Argb32) =
         sqrt (
             (double want.A - double got.A) ** 2. +
             (double want.R - double got.R) ** 2. +
@@ -23,26 +24,26 @@ type TransparencyMask = {
     Filter: bool array array;
 }
 
-let colorsCloseEnough (want: Color) (got: Color): bool =
+let colorsCloseEnough (want: Argb32) (got: Argb32): bool =
     let tolerance = 50.0
     let delta = euclidean.srgb want got
     delta <= tolerance
 
-let containsColor (color: Color) (tolerance: int) (scanline: Color seq) =
+let containsColor (color: Argb32) (tolerance: int) (scanline: Argb32 seq) =
     let matchingPixels = 
         scanline
         |> Seq.filter (colorsCloseEnough color)
         |> Seq.length
     matchingPixels >= tolerance
 
-let horizontalScan (image: Bitmap) (y: int) =
+let horizontalScan (image: Image<Argb32>) (y: int) =
     seq {0 .. image.Width - 1}
-    |> Seq.map (fun x -> image.GetPixel(x, y))
+    |> Seq.map (fun x -> image.Item(x, y))
 
-let getTransparencyMask (alpha: Color) (image: Bitmap) =
+let getTransparencyMask (alpha: Argb32) (image: Image<Argb32>) =
     let rowScan (y: int): bool array =
         [| 0 .. image.Width - 1 |]
-        |> Array.map (fun x -> colorsCloseEnough alpha (image.GetPixel(x, y)))
+        |> Array.map (fun x -> colorsCloseEnough alpha (image.Item(x, y)))
     
     [| 0 .. image.Height - 1 |]
     |> Array.map (rowScan)
@@ -59,7 +60,7 @@ let columnFrom2DArray (xys: bool array array) (x: int) =
 
 let rowFrom2DArray (xys: bool array array) (y: int) = xys.[y]
 
-let findMaskBounds (image: Bitmap) (mask: Color): TransparencyMask option =
+let findMaskBounds (image: Image<Argb32>) (mask: Argb32): TransparencyMask option =
     let transparencyMask = getTransparencyMask mask image
 
     try
@@ -87,47 +88,35 @@ let findMaskBounds (image: Bitmap) (mask: Color): TransparencyMask option =
     with
         | _ -> None
 
-let resizeToBounds (image: Bitmap) (bounds: Rectangle): Bitmap = 
-    let width, height =
-        let widthF, heightF = (double image.Width), (double image.Height)
-        if image.Width > image.Height then
-            int ((double bounds.Height) * widthF / heightF), bounds.Height
-        else
-            bounds.Width, int ((double bounds.Width) * heightF / widthF)
+let private resizeToFill (bounds: Rectangle) (image: Image<Argb32>): Image<Argb32> =
+    let transformation (context: IImageProcessingContext) =
+        let resizeOptions =
+            ResizeOptions
+                (Mode = ResizeMode.Crop, Size = Size(bounds.Width, bounds.Height), Sampler = KnownResamplers.Bicubic)
 
-    let resized = new Bitmap(width, height)
-    use g = Graphics.FromImage(resized)
-    g.InterpolationMode <- InterpolationMode.Bicubic
-    g.DrawImage(image, 0, 0, width, height)
-    resized
+        context.Resize(resizeOptions) |> ignore
 
-let applyMask (template: Bitmap) (mask: TransparencyMask) (image: Bitmap): Bitmap = 
+    image.Clone(transformation)
+
+let applyMask (template: Image<Argb32>) (mask: TransparencyMask) (image: Image<Argb32>): Image<Argb32> = 
     let {Bounds=bounds; Filter=filter} = mask
-    let output = new Bitmap(template.Width, template.Height)
-    use resizedContent = resizeToBounds image mask.Bounds
+    use resizedContent = resizeToFill mask.Bounds image
 
-    let rx, ry =
-        let landscape = resizedContent.Width >= resizedContent.Height
-        if landscape then
-            bounds.X - (resizedContent.Width - bounds.Width) / 2, bounds.Y
-        else
-            bounds.X, bounds.Y - (resizedContent.Height - bounds.Height) / 2
-
-    let transformToContent x y = x - rx, y - ry
+    let transformToContent x y = x - bounds.X, y - bounds.Y
     let showPixel x y = filter.[y].[x]
 
-    use g = Graphics.FromImage(output)
+    let output = new Image<Argb32>(template.Width, template.Height)
 
-    // y in this system is relative to resized image
     let drawScanline y =
         horizontalScan template y
         |> Seq.iteri 
             (fun x _ -> 
-                if showPixel x y then
-                    let cx, cy = transformToContent x y
-                    template.SetPixel(x, y, resizedContent.GetPixel(cx, cy)))
+                output.Item(x, y) <-
+                    if showPixel x y then
+                        let cx, cy = transformToContent x y
+                        resizedContent.Item(cx, cy)
+                    else
+                        template.Item(x, y))
 
-    // overlay content with horizontal scans and draw result
     {0 .. template.Height - 1} |> Seq.iter drawScanline
-    g.DrawImage(template, 0, 0, template.Width, template.Height)
     output

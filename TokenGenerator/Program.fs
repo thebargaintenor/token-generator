@@ -1,17 +1,17 @@
-﻿open System.Drawing
-open System.Drawing.Imaging
+﻿open SixLabors.ImageSharp
+open SixLabors.ImageSharp.PixelFormats
 
 open ImageOperations
 
-let loadbitmap (path: string) = new Bitmap(path)
+let loadbitmap (path: string) = Image.Load<Argb32>(path)
 
-let createToken (template: Bitmap) (image: Bitmap) (outputPath: string) = 
-    let magenta = Color.FromArgb(255, 255, 0, 255)
+let createToken (template: Image<Argb32>) (image: Image<Argb32>) (outputPath: string) = 
+    let magenta = Argb32(byte 255, byte 0, byte 255, byte 255)
     findMaskBounds template magenta
     |> function
         | Some mask ->
             use token = applyMask template mask image
-            token.Save(outputPath, ImageFormat.Png)
+            token.SaveAsPng(outputPath)
             Ok outputPath
         | None -> Error "no magenta mask found"
 
